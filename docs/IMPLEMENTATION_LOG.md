@@ -2,7 +2,7 @@
 
 ## Scope and data boundary
 
-The full master specification is retained in MASTER_SPEC.md; REQUIREMENTS.md traces it to phases and acceptance tests. Work is incremental; this is not a production completion claim. The existing Git checkout was used. No repository was pushed, no public application was deployed, no production database was modified, and no user email/calendar/Drive account was accessed. The fictional example company in the starter kit was not imported. The two oversized ZIP files remain uninspected.
+The full master specification is retained in MASTER_SPEC.md; REQUIREMENTS.md traces it to phases and acceptance tests. Work is incremental; this is not a production completion claim. The existing Git checkout was used. Initial implementation stayed local; subsequent approved source delivery and CI repair are recorded below. No public application was deployed, no production database was modified, and no user email/calendar/Drive account was accessed. The fictional example company in the starter kit was not imported. The two oversized ZIP files remain uninspected.
 
 ## Phase0 report — completed and tested
 
@@ -79,4 +79,16 @@ Saved environment configuration draft fields: `install_script`, `start_skill`, r
 
 Local preview was started on port3000 and checked in Chromium. Health returned200 with PostgreSQL storage, first-owner setup was visible with no existing user, and unauthenticated task access returned401. The main `.data/wasli` has no test account or operational records.
 
-Source remains local; no GitHub push or external application deployment occurred. See FEATURE_STATUS.md for all uncompleted master acceptance scenarios.
+Source was initially local; approved GitHub delivery is recorded below. See FEATURE_STATUS.md for all uncompleted master acceptance scenarios.
+
+## Approved source delivery and GitHub Actions repair
+
+Following the user's approval, source commit `33232fd` was pushed to `mowasli/WASLI-OS` on `main`. A GitHub ZIP download was retrieved and checked. This delivered source code; it did not deploy the application. The original validation runs [39502647730](https://github.com/mowasli/WASLI-OS/actions/runs/39502647730) and [39503112333](https://github.com/mowasli/WASLI-OS/actions/runs/39503112333) completed successfully on GitHub.
+
+The user's subsequent commit `79b20e3` added a Pages deployment template; its [run 39503112380](https://github.com/mowasli/WASLI-OS/actions/runs/39503112380) failed at `Build with Next.js`. Full original stderr could not be retrieved through this environment's network access. Independently reproduced `next build` with Node.js 20.20.1 in an isolated source copy: compilation and TypeScript passed, then page-data collection for `/api/intelligence` failed at the top-level Undici import with `TypeError: Cannot read properties of undefined (reading 'bind')`. Locked Undici 8.12.3 requires Node.js >=22.19; the application requires Node.js 24.
+
+The [official configure-pages v5 source](https://github.com/actions/configure-pages/blob/v5/src/set-pages-config.js#L43) additionally injects `output: 'export'`. Its configuration detection excludes `.ts` and creates `next.config.js`, taking precedence over this project's server configuration. Static Pages cannot run the application's authentication, APIs, database access or scheduling. Removed that incompatible template and preserved the application's server routes.
+
+Updated the validation workflow to checkout/setup-node v6 (Node.js 24 action runtimes), `.nvmrc` for application Node.js 24, Ubuntu 24.04, manual dispatch and route-type generation. Removed Pages deployment permissions and steps with the template. No application deployment was performed.
+
+Clean-source validation used a temporary copy with no existing `.next`, `next-env.d.ts`, `.data` or `node_modules`: locked installation, route generation, typecheck, all 48 domain/security tests and the production server build passed. Browser validation with system Chromium passed both standard workflows; the optional live-source scenario was skipped by its explicit opt-in setting, matching default CI coverage. Workflow YAML and runtime/permission settings were also checked. The updated workflow's GitHub execution remains unverified at this commit and will run on push.

@@ -32,3 +32,7 @@ UI uses official supplied WASL and THV assets with recorded provenance. WASL roy
 
 ## Validation strategy
 Meaningful unit/integration tests use disposable PostgreSQL directories, including persistent reopen, auth/session, membership denial, cross-workspace links, dependency cycles, source dedup/scoring/eligibility, OAuth state/crypto and scoped knowledge. Browser tests exercise actual signup, project/task create/edit/delete, reload persistence, view transitions and mobile/RTL. Production build/typecheck must pass. Real-source and live-provider checks remain distinct from controlled fixtures. See docs/IMPLEMENTATION_LOG.md for recorded results, never infer tests passed from this plan.
+
+## GitHub Actions repair
+
+The added GitHub Pages sample workflow used Node.js 20 and forced a static export. A disposable Node.js 20 build reproduced a failure collecting `/api/intelligence` because the locked Undici dependency requires a newer runtime. Pages also cannot host the application's authenticated server routes or PostgreSQL access. Consolidated validation in `ci.yml`, using `.nvmrc` (24), checkout/setup-node v6, Ubuntu 24.04 and generated Next.js route types before typecheck. Removed the incompatible Pages deployment workflow. Deployment remains a separate approved milestone on a host supporting Next.js server routes; no static replacement of the application is planned.
