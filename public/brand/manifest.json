@@ -1,0 +1,42 @@
+{
+  "wasl-logo-blue.png": {
+    "source": "ppt/media/image56.png",
+    "sha256": "ad5dcc8ed9af61a2e911ac3837f54df8d33fb1fe1a5636eca23e69cc51ce4a64",
+    "bytes": 11995
+  },
+  "wasl-logo-white.png": {
+    "source": "ppt/media/image16.png",
+    "sha256": "c0c46ae1f74620f1bd55629e0356554e7247fd286626838223559cc4925042b0",
+    "bytes": 38943
+  },
+  "wasl-logo-orange.png": {
+    "source": "ppt/media/image34.png",
+    "sha256": "24754cab461ab93b17b9bb5869b22996cc6358ba903912598b1e52e0fcc36887",
+    "bytes": 122989
+  },
+  "wasl-north-star-blue.png": {
+    "source": "ppt/media/image19.png",
+    "sha256": "47eb355d476ad2355a88bc77c960eb1ad85098bba6f2def3e49013b23ca5da00",
+    "bytes": 46008
+  },
+  "wasl-north-star-gold.png": {
+    "source": "ppt/media/image23.png",
+    "sha256": "da69ac16cc2d613b8fd3d1cf59bc4c45ddad1160e9ff8f327ac3e6709afbdb08",
+    "bytes": 37141
+  },
+  "wasl-north-star-teal.png": {
+    "source": "ppt/media/image49.png",
+    "sha256": "30e3753646c1400db7bd51ad5f857e5f6a290ec45a30a9226a695bb417571868",
+    "bytes": 45648
+  },
+  "wasl-pattern.png": {
+    "source": "ppt/media/image17.png",
+    "sha256": "f8f2ae03290b1b8893bd646a05a27f6c7272b14635abf6abecd8da82b7233045",
+    "bytes": 204201
+  },
+  "thv-logo.png": {
+    "source": "ppt/media/image63.png",
+    "sha256": "5d802f22b551e4e8587d081095e59e1b6d06e3290df0aa0d744fc9bbfba3defd",
+    "bytes": 110678
+  }
+}
