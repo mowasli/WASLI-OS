@@ -30,7 +30,7 @@ Browser tests use Chromium and a separate disposable database; see playwright.co
 
 ## Security and deployment
 
-GitHub Actions validates this server application; it does not deploy it. GitHub Pages cannot run its authentication, API routes or PostgreSQL access. Hosting requires a Node.js 24 server with approved database and identity configuration; see [deployment preparation](docs/DEPLOYMENT.md).
+GitHub Actions validates this server application using [.github/workflows/nextjs.yml](.github/workflows/nextjs.yml); it does not deploy it. Keep that server workflow rather than recreating GitHub's Pages template. GitHub Pages cannot run its authentication, API routes or PostgreSQL access. Hosting requires a Node.js 24 server with approved database and identity configuration; see [deployment preparation](docs/DEPLOYMENT.md).
 
 Server APIs enforce workspace membership and role. Sessions use hashed opaque tokens and HttpOnly same-site cookies; passwords use scrypt. Google accounts and scoped document retrieval remain separate per workspace. Never expose `.data`, secrets or backups. The local database is not encrypted at rest; use encrypted managed storage and an approved production identity provider before handling production confidential information.
 
