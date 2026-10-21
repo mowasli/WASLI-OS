@@ -14,13 +14,16 @@ export interface Database {
 declare global { var wasliDatabase: Promise<Database> | undefined; }
 
 export async function openDatabase(directory?: string): Promise<Database> {
+  if (!directory && (process.env.NODE_ENV === 'production' || process.env.VERCEL === '1') && !process.env.DATABASE_URL) {
+    throw new Error('Hosted WASLI OS requires DATABASE_URL. Embedded development storage is disabled in production.');
+  }
   let adapter: Database;
   if (!directory && process.env.DATABASE_URL) {
     const url = new URL(process.env.DATABASE_URL);
     const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
     // Do not allow URL parameters to silently override certificate verification.
     for (const key of ['sslmode', 'sslcert', 'sslkey', 'sslrootcert']) url.searchParams.delete(key);
-    const pool = new Pool({ connectionString: url.toString(), ssl: local ? undefined : { rejectUnauthorized: true }, max: 5 });
+    const pool = new Pool({ connectionString: url.toString(), ssl: local ? undefined : { rejectUnauthorized: true }, max: process.env.VERCEL === '1' ? 1 : 5, connectionTimeoutMillis: 10_000, idleTimeoutMillis: 10_000 });
     const wrap = (query: (sql: string, params?: unknown[]) => Promise<{ rows: unknown[] }>): Database => ({
       query: async <T>(sql: string, params?: unknown[]) => ({ rows: (await query(sql, params)).rows as T[] }),
       exec: async sql => { await query(sql); },

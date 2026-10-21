@@ -9,6 +9,8 @@ Build working features incrementally against docs/REQUIREMENTS.md. Use this exis
 - Never send, publish, share, deploy externally, mutate production databases or create external commitments without explicit user approval. Local reversible development is authorized.
 - Keep credentials server-only, outside Git and client bundles. Passwords must be hashed, sessions opaque and expiring, OAuth tokens encrypted. Do not log credentials or private document text.
 - Validate inputs; parameterize SQL; enforce origin checks for cookie-authenticated mutations. Preserve TLS verification. Do not silently bypass auth, eligibility, failures, or audit logs.
+- Hosted mode uses Supabase-verified identities with explicitly provisioned UUID memberships. Never auto-link by email, enable public owner setup, accept local sessions in managed mode or silently bypass MFA.
+- Production requires managed PostgreSQL; never fall back to writable serverless files. Managed app sessions expire within the provider token lifetime and at most one hour. Never persist provider login tokens or passwords.
 
 ## Conventions
 - Next.js App Router, strict TypeScript; explicit server/client boundaries. Use shared types. Keep data access and authorization in server modules.

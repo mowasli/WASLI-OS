@@ -36,8 +36,10 @@ This is an incremental local release. “Implemented and tested” identifies th
 | Freelance/volunteer engagements | Implemented and tested | Independent categories and shared PM; no full invoicing/accounting |
 | JSON export/offline backup and restore | Implemented and tested | Scoped task/project/audit export; actual restore drill; private snapshots |
 | Managed Supabase/PostgreSQL schema/RLS | Requires user authorization | SQL supplied and unapplied; actual hosted identity/policy tests unrun |
-| Hosted authentication, encrypted infrastructure, disaster recovery | Planned | Local persistence is one-process embedded PostgreSQL; not production hosting |
-| External deployment | Requires user authorization | No public app URL, push or production migration performed |
+| Managed Supabase sign-in and bounded app sessions | Implemented; controlled tests pass | Provider token verification, provisioned UUID membership, domain-separated sessions, MFA refusal and expiry; real account/login unverified |
+| Vercel + Supabase hosting configuration/preflight | Prepared; local checks tested | Production embedded-storage guard, pooler limits, secure environment handoff, manual owner SQL; no provider project or credentials configured |
+| Hosted encrypted infrastructure, RLS policy validation, disaster recovery | Requires provider configuration and authorization | Actual managed infrastructure and production policy/restore checks remain unrun |
+| External deployment | Requires user authorization | Source pushed to GitHub; no public app URL or production migration performed |
 | Oversized Brand Assets/Filing archives | Blocked | Each exceeds 32 MiB transfer limit; company deck supplied verified usable assets |
 
 # Master acceptance scenarios

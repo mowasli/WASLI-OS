@@ -32,6 +32,8 @@ Browser tests use Chromium and a separate disposable database; see playwright.co
 
 GitHub Actions validates this server application using [.github/workflows/nextjs.yml](.github/workflows/nextjs.yml); it does not deploy it. Keep that server workflow rather than recreating GitHub's Pages template. GitHub Pages cannot run its authentication, API routes or PostgreSQL access. Hosting requires a Node.js 24 server with approved database and identity configuration; see [deployment preparation](docs/DEPLOYMENT.md).
 
+Vercel + Supabase hosting configuration and managed sign-in code are prepared. Follow [the hosting handoff](docs/HOSTING.md) for secure settings, approved database/owner provisioning and `npm run hosting:check`. Production refuses embedded storage; managed identities require explicit workspace access. Live provider login, database policy tests and deployment remain unverified until the protected accounts/settings are available. No public website has been deployed.
+
 Server APIs enforce workspace membership and role. Sessions use hashed opaque tokens and HttpOnly same-site cookies; passwords use scrypt. Google accounts and scoped document retrieval remain separate per workspace. Never expose `.data`, secrets or backups. The local database is not encrypted at rest; use encrypted managed storage and an approved production identity provider before handling production confidential information.
 
 Do not run against production `DATABASE_URL` until migrations, RLS, identity and backups have been reviewed and approved. No external deployment or production migration has been performed. Review [PLANS.md](PLANS.md), [requirements](docs/REQUIREMENTS.md), [brand audit](docs/BRAND_SOURCES.md) and [implementation log](docs/IMPLEMENTATION_LOG.md).

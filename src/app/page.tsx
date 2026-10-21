@@ -232,9 +232,11 @@ function Auth({
           <p>
             {state.setupRequired
               ? "Create the owner account for this local installation. Your four workspaces will be ready immediately."
-              : "Sign in to pick up where you left off."}
+              : state.authProvider === "supabase"
+                ? "Sign in with your administrator-provisioned account."
+                : "Sign in to pick up where you left off."}
           </p>
-          <form onSubmit={submit} className="record-form">
+          {!state.authEnabled ? <p className="notice-text" role="status">Sign-in is not configured for this installation. Please contact the administrator.</p> : <form onSubmit={submit} className="record-form">
             {state.setupRequired && (
               <label>
                 Your name
@@ -286,11 +288,11 @@ function Auth({
                   : "Sign in"}
               <ArrowRight size={17} />
             </button>
-          </form>
+          </form>}
           <div className="auth-note">
             <LockKeyhole size={15} />
             <span>
-              Local PostgreSQL storage · No external accounts connected
+              Private access · Separate workspaces
             </span>
           </div>
         </div>
@@ -1490,6 +1492,7 @@ export default function Home() {
               key={scope}
               scope={scope}
               workspace={workspaces.find((w) => w.id === scope)}
+              localProvisioningEnabled={session.localAuthEnabled}
               onToast={setToast}
             />
           )}
@@ -1783,10 +1786,12 @@ function CalendarView({
 function Settings({
   scope,
   workspace,
+  localProvisioningEnabled,
   onToast,
 }: {
   scope: Scope;
   workspace?: Workspace;
+  localProvisioningEnabled: boolean;
   onToast: (s: string) => void;
 }) {
   const [error, setError] = useState(""),
@@ -1839,7 +1844,7 @@ function Settings({
               Owners manage access. Editors can update workspace records.
               Viewers can read but cannot make changes.
             </p>
-            {workspace?.role === "owner" ? (
+            {workspace?.role === "owner" && localProvisioningEnabled ? (
               <form className="record-form" onSubmit={member}>
                 <h3>Add a workspace member</h3>
                 <label>
@@ -1879,7 +1884,9 @@ function Settings({
               </form>
             ) : (
               <p className="notice-text">
-                Only workspace owners can manage membership.
+                {workspace?.role === "owner"
+                  ? "Managed accounts are provisioned by an administrator. Contact the administrator to add a member."
+                  : "Only workspace owners can manage membership."}
               </p>
             )}
           </>

@@ -4,6 +4,7 @@ import { ZodError } from 'zod';
 import { db, type Database } from './db';
 import type { Role, User, Workspace, WorkspaceId } from './types';
 import { credentialsSchema, setupSchema, workspaceIdSchema } from './validation';
+import { authenticateSupabase, supabaseAuthConfigured, SupabaseSignInError, type SupabaseIdentity } from './supabase-auth';
 
 export const SESSION_COOKIE = 'wasli_session';
 export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
@@ -48,7 +49,16 @@ export function assertSameOrigin(request: Request): void {
   }
   if (origin !== expected) throw new ApiError(403,'This action requires a same-origin request');
 }
-export function localAuthEnabled(): boolean { return process.env.NODE_ENV !== 'production' || process.env.ALLOW_LOCAL_AUTH === 'true'; }
+export function authenticationProvider(): 'local' | 'supabase' | 'disabled' {
+  if (process.env.WASLI_AUTH_PROVIDER === 'supabase') return 'supabase';
+  if (process.env.WASLI_AUTH_PROVIDER && process.env.WASLI_AUTH_PROVIDER !== 'local') return 'disabled';
+  return process.env.NODE_ENV !== 'production' || process.env.ALLOW_LOCAL_AUTH === 'true' ? 'local' : 'disabled';
+}
+export function localAuthEnabled(): boolean { return authenticationProvider() === 'local'; }
+export function authenticationEnabled(): boolean {
+  const provider = authenticationProvider();
+  return provider === 'local' || (provider === 'supabase' && supabaseAuthConfigured());
+}
 function requireLocalAuth(): void { if(!localAuthEnabled()) throw new ApiError(503,'Local password authentication is disabled. Configure an approved identity provider before production use.'); }
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(24).toString('base64url');
@@ -64,15 +74,23 @@ export async function verifyPassword(password:string,encoded:string):Promise<boo
 async function hashWithSalt(password:string,salt:string):Promise<string> {
   return new Promise((resolve,reject)=>scrypt(password,salt,64,{N:32768,maxmem:64*1024*1024},(error,key)=>error?reject(error):resolve(key.toString('base64url'))));
 }
-const digest=(token:string)=>createHash('sha256').update(token).digest('hex');
-export async function createSession(userId:string):Promise<string> {
+// Distinct hash domains prevent a local session becoming a managed-auth session
+// when an operator changes the provider. Raw tokens remain opaque in both modes.
+const digest=(token:string)=>createHash('sha256').update(authenticationProvider()==='supabase'?'supabase:':'').update(token).digest('hex');
+export async function createSession(userId:string,lifetimeSeconds=7*24*60*60,providerExpiresAt=Infinity):Promise<string> {
+  const maximum=authenticationProvider()==='supabase'?3600:7*24*60*60;
+  if(!Number.isInteger(lifetimeSeconds)||lifetimeSeconds<1) throw new ApiError(500,'Invalid session duration');
+  const duration=Math.min(lifetimeSeconds,maximum);
+  const expiresAt=new Date(Math.min(Date.now()+duration*1000,providerExpiresAt));
+  if(!Number.isFinite(expiresAt.getTime())||expiresAt.getTime()<=Date.now()) throw new ApiError(401,'The sign-in token expired. Please sign in again.');
   const token=randomBytes(32).toString('base64url'); const database=await db();
   await database.query('DELETE FROM sessions WHERE expires_at < now()');
-  await database.query('INSERT INTO sessions(token_hash,user_id,expires_at) VALUES($1,$2,now()+ interval \'7 days\')',[digest(token),userId]);
+  await database.query('INSERT INTO sessions(token_hash,user_id,expires_at) VALUES($1,$2,$3::timestamptz)',[digest(token),userId,expiresAt.toISOString()]);
   return token;
 }
-export function withSession(response:NextResponse,token:string,request:Request):NextResponse {
-  response.cookies.set(SESSION_COOKIE,token,{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production'||new URL(request.url).protocol==='https:',path:'/',maxAge:7*24*60*60});
+export function withSession(response:NextResponse,token:string,request:Request,lifetimeSeconds=7*24*60*60):NextResponse {
+  const maxAge=Math.min(lifetimeSeconds,authenticationProvider()==='supabase'?3600:7*24*60*60);
+  response.cookies.set(SESSION_COOKIE,token,{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production'||new URL(request.url).protocol==='https:',path:'/',maxAge});
   return response;
 }
 async function tokenFrom(request?:Request):Promise<string|undefined> {
@@ -83,7 +101,7 @@ async function tokenFrom(request?:Request):Promise<string|undefined> {
   const {cookies}=await import('next/headers'); return (await cookies()).get(SESSION_COOKIE)?.value;
 }
 export async function currentUser(request?:Request):Promise<User|null> {
-  if(!localAuthEnabled()) return null;
+  if(!authenticationEnabled()) return null;
   const token=await tokenFrom(request); if(!token || !/^[\w-]{43}$/.test(token)) return null;
   const result=await (await db()).query<User>('SELECT u.id,u.email,u.name FROM sessions s JOIN app_users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now()',[digest(token)]);
   return result.rows[0]??null;
@@ -126,6 +144,33 @@ export async function login(input:unknown):Promise<User> {
   }
   await database.query('DELETE FROM login_attempts WHERE email=$1',[data.email]);
   return {id:row.id,email:row.email,name:row.name};
+}
+export async function signIn(input:unknown,verifyIdentity:typeof authenticateSupabase=authenticateSupabase):Promise<{user:User;token:string;lifetimeSeconds:number}> {
+  if(authenticationProvider()!=='supabase') {
+    const user=await login(input);
+    return {user,token:await createSession(user.id),lifetimeSeconds:7*24*60*60};
+  }
+  if(!supabaseAuthConfigured()) throw new ApiError(503,'Managed sign-in is not configured. Contact the administrator.');
+  const data=credentialsSchema.parse(input); const database=await db();
+  const recent=await database.query<{failures:number}>('SELECT failures FROM login_attempts WHERE email=$1 AND last_attempt>now()-interval \'15 minutes\'',[data.email]);
+  if((recent.rows[0]?.failures??0)>=8) throw new ApiError(429,'Too many sign-in attempts. Try again in 15 minutes.');
+  let identity:SupabaseIdentity;
+  try { identity=await verifyIdentity(data); }
+  catch(error) {
+    if(error instanceof SupabaseSignInError) {
+      if(error.status===401) await database.query('INSERT INTO login_attempts(email,failures,last_attempt) VALUES($1,1,now()) ON CONFLICT(email) DO UPDATE SET failures=CASE WHEN login_attempts.last_attempt<now()-interval \'15 minutes\' THEN 1 ELSE login_attempts.failures+1 END,last_attempt=now()',[data.email]);
+      throw new ApiError(error.status,error.message);
+    }
+    throw new ApiError(503,'The sign-in provider is unavailable. Try again later.');
+  }
+  // No email auto-linking, public signup, or first-visitor owner provisioning.
+  const result=await database.query<User>('SELECT u.id,u.email,u.name FROM app_users u WHERE u.id=$1 AND lower(u.email)=$2 AND EXISTS(SELECT 1 FROM workspace_memberships m WHERE m.user_id=u.id)',[identity.id,identity.email]);
+  const user=result.rows[0];
+  if(!user) throw new ApiError(403,'This account has no workspace access. Contact the administrator.');
+  await database.query('DELETE FROM login_attempts WHERE email=$1',[data.email]);
+  const lifetimeSeconds=Math.min(identity.lifetimeSeconds,3600,Math.floor((identity.expiresAt-Date.now())/1000));
+  if(lifetimeSeconds<1) throw new ApiError(401,'The sign-in token expired. Please sign in again.');
+  return {user,token:await createSession(user.id,lifetimeSeconds,identity.expiresAt),lifetimeSeconds};
 }
 export async function logout(request:Request):Promise<void> { const token=await tokenFrom(request); if(token) await (await db()).query('DELETE FROM sessions WHERE token_hash=$1',[digest(token)]); }
 /** A non-reversible session binding for OAuth state; never exposes a cookie value. */

@@ -1,6 +1,6 @@
 # Production deployment preparation — not deployed
 
-The local development workflow is functional only after the tests documented in IMPLEMENTATION_LOG. External deployment and all production database changes require explicit approval. Nothing in this guide grants approval.
+The local development workflow is functional only after the tests documented in IMPLEMENTATION_LOG. Vercel + Supabase is the selected preparation target; see [HOSTING.md](HOSTING.md) for the concrete configuration, managed sign-in boundary and secure settings. External deployment and all production database changes require explicit approval. Nothing in this guide grants approval.
 
 ## Release gates
 
@@ -9,7 +9,7 @@ This application requires a Node.js 24 runtime. GitHub Pages hosts static files 
 The repository's `WASLI OS validation` workflow in `.github/workflows/nextjs.yml` uses Node.js 24, checkout/setup actions running on Node.js 24, and Ubuntu 24.04. It installs locked dependencies, generates Next.js route types, typechecks, runs domain/security tests, builds the server application and exercises browser workflows. It has read-only repository permissions and no deployment step. Keep this file; creating the Pages sample from Settings or Actions restores an incompatible configuration. The optional live-source browser test remains opt-in and is not run by default CI.
 
 1. Select hosting region/provider, production owner, data retention and confidentiality policy. Confirm encrypted database/storage and HTTPS. Configure WASLI_APP_ORIGIN to the exact canonical HTTPS origin; forwarded headers never establish the production mutation allowlist. The embedded local database is not production multi-instance storage.
-2. Provision managed PostgreSQL/Supabase and configure an approved production identity provider; map authenticated identities to `app_users` and workspace memberships. Current local sessions are not a completed Supabase Auth integration. Do not expose tables through the public Data API without RLS policies verified against actual auth identities.
+2. Provision managed PostgreSQL/Supabase after approval and configure `WASLI_AUTH_PROVIDER=supabase` with a public project key. The implemented adapter verifies provider credentials/token and requires a pre-provisioned UUID/email plus workspace memberships. Test a real provider login, bounded sessions and the approved owner mapping before release; controlled fixture tests are not a live integration. Do not expose tables through the public Data API without RLS policies verified against actual auth identities.
 3. Review SQL in `supabase/migrations` and apply it manually after approval. The server never auto-migrates `DATABASE_URL`. Use a dedicated least-privilege server database role, not a browser key; use authenticated server APIs only. Production authorization must include direct database policy tests.
 4. Configure Google OAuth credentials/callback, selected minimum scopes and server token encryption; perform real consent, read, revocation and expiry tests for each independent workspace account. Do not silently ingest entire Drive accounts.
 5. Review research source terms/coverage; permit only necessary public hosts; run a real authenticated manual scan and review provenance/eligibility and failure logs.

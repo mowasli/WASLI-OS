@@ -1,0 +1,13 @@
+.git
+.data
+**/.data/**
+.env*
+.next
+node_modules
+test-results
+playwright-report
+coverage
+*.log
+*.tsbuildinfo
+artifacts
+attachments
