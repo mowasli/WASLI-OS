@@ -2,6 +2,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { Pool } from 'pg';
 import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { SUPABASE_ROOT_2021_CA } from './supabase-ca';
 
 export interface QueryResult<T = Record<string, unknown>> { rows: T[] }
 export interface Database {
@@ -13,6 +14,19 @@ export interface Database {
 
 declare global { var wasliDatabase: Promise<Database> | undefined; }
 
+/** Verify the database TLS server and its hostname. Supabase's managed
+ * pooler uses a private CA, so Node's system roots alone cannot validate it.
+ * Never disable certificate verification or accept sslmode=no-verify.
+ */
+export function databaseTlsOptions(hostname: string): { rejectUnauthorized: true; ca?: string } | undefined {
+  const lower = hostname.toLowerCase();
+  if (['localhost', '127.0.0.1', '[::1]'].includes(lower)) return undefined;
+  if (lower.endsWith('.pooler.supabase.com') || lower.endsWith('.supabase.co')) {
+    return { rejectUnauthorized: true, ca: SUPABASE_ROOT_2021_CA };
+  }
+  return { rejectUnauthorized: true };
+}
+
 export async function openDatabase(directory?: string): Promise<Database> {
   if (!directory && (process.env.NODE_ENV === 'production' || process.env.VERCEL === '1') && !process.env.DATABASE_URL) {
     throw new Error('Hosted WASLI OS requires DATABASE_URL. Embedded development storage is disabled in production.');
@@ -23,7 +37,7 @@ export async function openDatabase(directory?: string): Promise<Database> {
     const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
     // Do not allow URL parameters to silently override certificate verification.
     for (const key of ['sslmode', 'sslcert', 'sslkey', 'sslrootcert']) url.searchParams.delete(key);
-    const pool = new Pool({ connectionString: url.toString(), ssl: local ? undefined : { rejectUnauthorized: true }, max: process.env.VERCEL === '1' ? 1 : 5, connectionTimeoutMillis: 10_000, idleTimeoutMillis: 10_000 });
+    const pool = new Pool({ connectionString: url.toString(), ssl: databaseTlsOptions(url.hostname), max: process.env.VERCEL === '1' ? 1 : 5, connectionTimeoutMillis: 10_000, idleTimeoutMillis: 10_000 });
     const wrap = (query: (sql: string, params?: unknown[]) => Promise<{ rows: unknown[] }>): Database => ({
       query: async <T>(sql: string, params?: unknown[]) => ({ rows: (await query(sql, params)).rows as T[] }),
       exec: async sql => { await query(sql); },
